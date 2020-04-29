@@ -1,0 +1,38 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+.so
+
+# Distributing / packaging
+MANIFEST
+
+# Installer logs
+pip-log.txt
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Markdown documentations
+site/
+
+# Zig
+zig-cache/
+/build/
+/build-*/
+/docgen_tmp/
+
+# Archives, object and temporary files
+*.[oa]
+*~
+
+# Editor-specific files
+.DS_Store
