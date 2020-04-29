@@ -2,12 +2,11 @@ zig-update
 ==========
 
 ## Rationale
-As it may be cumbersome and can distracting you from your primary objectives when you need the
-cutting-edge branch of your favorite programming language, downloading, copying, configuring and
-saving old_settings is time-consuming and error-prone.
+While looking for the newest version, it may be cumbersome and divert you from your primary
+objective shall you need the cutting-edge branch of your favorite programming language. Thereby, downloading, copying, configuring and saving old_settings is time-consuming and error-prone.
 
-zig-update was conceived to supply a easy-to-use and quick way to install and/or update the Zig
-compiler from the official sources.
+zig-update was conceived to supply a easy-to-use and quick method to install and/or update the Zig
+compiler from the official source.
 
 
 ## Dependencies
@@ -16,8 +15,8 @@ Zig-update is self-sufficient and does not require any dependencies other than t
 shell installed on Mac OS distributions since October 2019).
 
 Zig-update will download the last tarball (*i.e.* pre-built binaries) from the official website
-[ziglang](https://ziglang.org) and run all necessary operations in order to prepare an immediately
-and fully functional working environment with Zig (which is as you may be recalled both a compiler
+[ziglang](https://ziglang.org) and run all necessary operations in order to set up an immediately
+fully functional working environment with Zig (which is as you may recall both a compiler
 and a programming language).
 
 
@@ -30,7 +29,7 @@ At the moment, zig-update is only available for x86_64-linux target.
 * Revert changes in case of installation's failure by stashing old binary.
 
 ### 0.0.4:
-* Improve detection with PATH environment variable instead of checking out run-control file.
+* Improve detection with PATH environment variable instead of checking out the run-control file.
 
 ### 0.0.3:
 * Add standard error outputs redirection for logging purpose.
