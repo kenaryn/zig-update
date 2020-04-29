@@ -42,3 +42,6 @@ At the moment, zig-update is only available for x86_64-linux target.
 
 ## Notes
 zig-update is entirely written in Zsh 5.7.1.
+
+## License
+The project is under the 3-Clause BSD License.
