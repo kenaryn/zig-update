@@ -1,7 +1,7 @@
 #!/usr/bin/env zsh
 #: Description : Install or update Zig's pre-built binaries for x86_64-linux target using zsh.
 #: Author      : "Aurélien Plazzotta <aurelien.plazzotta@protonmail.com>"
-#: Version     : 0.0.3
+#: Version     : 0.0.1
 
 # The shell shall immediately exit when any command fails.
 set -e
@@ -11,10 +11,11 @@ set -x
 
 INSTALL_DIR="$(dirname $0)"
 HOST="ziglang.org"
-ARCH="$(uname --kernel-name --machine | sed 's/\s/-/')" # Outputs 'Linux-x86_64'
-SRV_RESPONSE=$(curl --silent --write-out "%{http_code}\n" --location "${HOST}/" --output "/dev/null")
+ARCH="$(uname --kernel-name --machine | sed 's/\s/-/')" # Outputs Linux-x86_64'
+SRV_RESPONSE=$(curl --silent --write-out "%{http_code}\n" --location "${HOST}/" \
+    --output "/dev/null")
 
-if [[ ($SRV_RESPONSE == 200) || ($SRV_RESPONSE == 403) ]]; then
+if [[ ($SRV_RESPONSE == (200 || 403) ]]; then
     if (( $(grep --count 'zig' "${HOME}/.zshrc") )); then
         MYVERSION="$(zig version)"
         if ( MYVERSION == FILE); then
@@ -22,10 +23,17 @@ if [[ ($SRV_RESPONSE == 200) || ($SRV_RESPONSE == 403) ]]; then
             exit 0
         fi
     else
-        # Clean up old zig's cache and compiler.
-        if [ -d "${HOME}/.local/cache/zig" ]; then
+        # Check out if zig is running or runnable in the foreground, whether associated to
+        # the terminal or not, before cleaning up the cache and removing the compiler old's version
+        if [ -d "${HOME}/.local/cache/zig" ] && [[ -z "$(ps -d -u ${USERNAME} -o stat,command | grep \
+            'R+[[:blank:]]\+zig build')" ]]; then
             rm -rf "${HOME}/.local/{cache,bin}/zig"
             STATUS='updated'
+        else
+            printf %s\\n "Zig is currently running (or in is run queue). Hence, is it UNSAFE to \
+                perform any update for now. Please retry after the current zig process's \
+                completion." >&2
+                exit 1
         fi
 
         #  require `jq` package to be installed. Use it if already installed, else graceful degradation
@@ -42,7 +50,7 @@ if [[ ($SRV_RESPONSE == 200) || ($SRV_RESPONSE == 403) ]]; then
 
         # In case of very first Zig's installation
         if (( ! $(grep -c 'zig' "${HOME}/.zshrc") )); then
-            printf %s\\n "export PATH=${PATH}:${HOME}/.local/bin/zig" >> "${HOME}/.zshrc";
+            printf %s\\n "export PATH=${PATH}:${HOME}/.local/bin/zig" >> "${HOME}/.zshrc"
             STATUS='installed'
         fi
 
@@ -56,7 +64,7 @@ else
     OFFLINE_MSG="The official server is offline or not working correctly."
     printf "${OFFLINE_MSG}\nPlease retry later.\n"
     printf "${USERNAME} at ${DATE}${OFFLINE_MSG}\n" >> "${INSTALL_DIR}/logging_book"
-    exit 0
+    exit 1
 fi
 
 #  TODO:
