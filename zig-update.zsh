@@ -11,12 +11,12 @@ set -x
 
 INSTALL_DIR="$(dirname $0)"
 HOST="ziglang.org"
-ARCH="$(uname --kernel-name --machine | sed 's/\s/-/')" # Outputs Linux-x86_64'
+ARCH="$(uname --kernel-name --machine | sed 's/\s/-/')" # Outputs 'Linux-x86_64'
 SRV_RESPONSE=$(curl --silent --write-out "%{http_code}\n" --location "${HOST}/" \
     --output "/dev/null")
 
 if [[ ($SRV_RESPONSE == (200 || 403) ]]; then
-    if (( $(grep --count 'zig' "${HOME}/.zshrc") )); then
+    if grep -Po '\<zig\>' "${HOME}/.zshrc"; then
         MYVERSION="$(zig version)"
         if ( MYVERSION == FILE); then
             printf "Zig is already the newest version (${MYVERSION}).\nThere is nothing to upgrade.\n"
@@ -25,7 +25,7 @@ if [[ ($SRV_RESPONSE == (200 || 403) ]]; then
     else
         # Check out if zig is running or runnable in the foreground, whether associated to
         # the terminal or not, before cleaning up the cache and removing the compiler old's version
-        if [ -d "${HOME}/.local/cache/zig" ] && [[ -z "$(ps -d -u ${USERNAME} -o stat,command | grep \
+        if [[ -d "${HOME}/.local/cache/zig" ]] && [[ -z "$(ps -d -u ${USERNAME} -o stat,command | grep \
             'R+[[:blank:]]\+zig build')" ]]; then
             rm -rf "${HOME}/.local/{cache,bin}/zig"
             STATUS='updated'
@@ -36,11 +36,21 @@ if [[ ($SRV_RESPONSE == (200 || 403) ]]; then
                 exit 1
         fi
 
-        #  require `jq` package to be installed. Use it if already installed, else graceful degradation
-        #+ with `grep`
-        FILE="$(curl -s 'https://ziglang.org/download/index.json' | jq --raw-output '.master.version')"
-        # FILE="$(curl -s 'https://ziglang.org/download/index.json' | grep --perl-regexp --only-matching ADD THE REGEX HERE!!)"
-        FILE="${ARCH:l}-${FILE}.tar.xz" # `:l` modifier convert the word to all lowercase.
+        # Use `jq` to silently fetch last version or fallback to `grep` otherwise
+        # if the former is not installed
+        if whence jq > /dev/null; then
+            API=(jq -r '.master.version')
+        else
+            API=(grep -Po '(?<="version": ")[^"]*')
+        fi
+
+        function {
+            local JSON='https://ziglang.org/download/index.json'
+            curl -fsSL "$JSON" | $@
+        } ${API}
+
+        # `:l` modifier converts 'ARCH' to lowercase letters.
+        FILE="${ARCH:l}-${FILE}.tar.xz"
         curl -O "https://ziglang.org/builds/${FILE}"
         tar -xJf "${INSTALL_DIR}/${FILE}"
         # Take the longest match before '.tar' substring (i.e. strip off new dir from its extension)
