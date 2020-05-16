@@ -15,7 +15,7 @@ ARCH="$(uname --kernel-name --machine | sed 's/\s/-/')" # Outputs 'Linux-x86_64'
 SRV_RESPONSE=$(curl --silent --write-out "%{http_code}\n" --location "${HOST}/" \
     --output "/dev/null")
 
-function download() {
+function get_last_num_version() {
     # Use `jq` to silently fetch last version or fallback to `grep` otherwise
     if whence jq > /dev/null; then
         API=(jq -r '.master.version')
@@ -23,46 +23,46 @@ function download() {
         API=(grep -Po '(?<="version": ")[^"]*')
     fi
 
-    function {
-        local JSON='https://ziglang.org/download/index.json'
-        curl -fsSL "$JSON" | $@
-    } ${API}
+    local JSON='https://ziglang.org/download/index.json'
+    curl -fsSL "$JSON" | "${API}"
+}
 
+function download() {
+    LAST_NUM_VERSION="$(get_last_num_version)"
     # `:l` modifier converts 'ARCH' value to lowercase letters.
-    FILE="${ARCH:l}-${FILE}.tar.xz"
-    curl -O "https://ziglang.org/builds/${FILE}"
-
+    LAST_FILE_VERSION="${ARCH:l}-${LAST_NUM_VERSION}.tar.xz" # WHAT IS LASTVERSION ???
+    curl -O "https://ziglang.org/builds/${LAST_FILE_VERSION}"
 }
 
 function extract() {
-    tar -xJf "${INSTALL_DIR}/${FILE}"
+    tar -xJf "${INSTALL_DIR}/${LAST_FILE_VERSION}"
+}
+
+function move() {
     # Take the longest match before '.tar' substring (i.e. strip off new dir from its extension)
-    mv "${FILE%%\.tar*}" 'zig'
+    mv "${LAST_FILE_VERSION%%\.tar*}" 'zig'
     mv 'zig' "${HOME}/.local/bin"
 }
 
-if [[ ($SRV_RESPONSE == (200 || 403) ]]; then
+if (( $SRV_RESPONSE == 200 )); then
     if grep -qF '/bin/zig' "${HOME}/.zshrc"; then # If Zig already installed
         MYVERSION="$(zig version)"
-        if ( $MYVERSION == "${FILE%%\.tar*}"); then
-            print "Zig is already the newest version (${MYVERSION}).\n \
-            There is nothing to upgrade.\n"
+        if ( $MYVERSION == "$(get_last_num_version)" ); then
+            print "Zig is already the newest version (${MYVERSION}).\nThere is nothing to upgrade.\n"
             exit 0
         fi
 
         # Check out if zig is running or runnable in the foreground, whether associated to
-        # the terminal or not, before cleaning up the cache and removing the compiler old's version
         # Test against 'build' sub-string to a case loop to include other zig's commands (e.g. fmt, cc, build-exe, etc.)
-        if [[ -d "${HOME}/.local/cache/zig" ]] && \
-        [[ -z "$(ps -d -u ${USERNAME} -o stat,command | grep '^R+[[:blank:]]\+zig build')" ]]; then
+        print "There is a new version available (${LAST_NUM_VERSION})."
+        if ps -d -u ${USERNAME} -o stat,command | grep -q '^R+[[:blank:]]\+zig build'; then
             rm -rf "${HOME}/.local/{cache,bin}/zig" # TODO: make it an archive to stash it instead of removing it to reverse changes if installation fails
-
             download
             extract
-
+            move
             source "${HOME}/.zshrc"
 
-            # Last check
+            # Trivial check before acomplishment.
             if zig version > /dev/null; then
                 rm -f "${INSTALL_DIR}/${FILE}"
                 STATUS='Zig has been updated successfully.\n' # TODO: add a uninstallation' scenario
@@ -70,14 +70,13 @@ if [[ ($SRV_RESPONSE == (200 || 403) ]]; then
                 exit 0
             else
                 STATUS='Zig has not been properly updated.\n'
-                print "{STATUS}Your downloaded archive has been preserved. Please try another method." >&2
+                print "{STATUS}Please try another method." >&2
+                update_logging_book
                 exit 2
             fi
 
         else
-            printf '%s\\n' "Zig is currently running (or in is run queue). Hence, is it UNSAFE to \
-            perform any update for now. Please retry after the current zig process's \
-            completion." >&2
+            printf '%s\\n' "Zig is currently running (or in is run queue). Hence, is it UNSAFE to perform any update for now. Please retry after the current zig process's completion." >&2
             exit 1
         fi
 
@@ -102,13 +101,16 @@ if [[ ($SRV_RESPONSE == (200 || 403) ]]; then
         exit 0
     fi
 else
-    # TODO: make the logging book a function to be reused for each non-null exit codes.
-    DATE="$(date -I'minutes')\n"
-    OFFLINE_MSG="The official server is offline or not working correctly."
-    printf "${OFFLINE_MSG}\nPlease retry later.\n"
-    printf "${USERNAME} at ${DATE}${OFFLINE_MSG}\n" >> "${INSTALL_DIR}/logging_book"
+    STATUS="The official server is offline or not working correctly."
+    update_logging_book
+    printf "${MSG}\nPlease retry later.\n"
     exit 1
 fi
+
+function update_logging_book() {
+    local DATE="$(date -I'minutes')\n"
+    printf "${USERNAME} at ${DATE}${STATUS}\n" >> "${INSTALL_DIR}/logging_book"
+} ${STATUS}
 
 #  TODO:
 #  4)Add other available architectures to target a broader audience (e.g. x86_64-dragonfly, freebsd users)
