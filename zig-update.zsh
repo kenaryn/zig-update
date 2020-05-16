@@ -12,8 +12,7 @@ set -x
 INSTALL_DIR="$(dirname $0)"
 HOST="ziglang.org"
 ARCH="$(uname --kernel-name --machine | sed 's/\s/-/')" # Outputs 'Linux-x86_64'
-SRV_RESPONSE=$(curl --silent --write-out "%{http_code}\n" --location "${HOST}/" \
-    --output "/dev/null")
+SRV_RESPONSE=$(curl -s --write-out "%{http_code}\n" -L "${HOST}/" --output "/dev/null")
 
 function get_last_num_version() {
     # Use `jq` to silently fetch last version or fallback to `grep` otherwise
@@ -23,14 +22,15 @@ function get_last_num_version() {
         API=(grep -Po '(?<="version": ")[^"]*')
     fi
 
-    local JSON='https://ziglang.org/download/index.json'
-    curl -fsSL "$JSON" | "${API}"
+    function {
+        curl -fsSL "https://ziglang.org/download/index.json" | $@
+    } ${API}
 }
 
 function download() {
     LAST_NUM_VERSION="$(get_last_num_version)"
     # `:l` modifier converts 'ARCH' value to lowercase letters.
-    LAST_FILE_VERSION="${ARCH:l}-${LAST_NUM_VERSION}.tar.xz" # WHAT IS LASTVERSION ???
+    LAST_FILE_VERSION="zig-${ARCH:l}-${LAST_NUM_VERSION}.tar.xz"
     curl -O "https://ziglang.org/builds/${LAST_FILE_VERSION}"
 }
 
@@ -41,22 +41,24 @@ function extract() {
 function move() {
     # Take the longest match before '.tar' substring (i.e. strip off new dir from its extension)
     mv "${LAST_FILE_VERSION%%\.tar*}" 'zig'
-    mv 'zig' "${HOME}/.local/bin"
+    mv 'zig' "${HOME}/.local/bin" # Cannot move: directory not empty. Did NOT executed `rm -rf` line
 }
 
 if (( $SRV_RESPONSE == 200 )); then
     if grep -qF '/bin/zig' "${HOME}/.zshrc"; then # If Zig already installed
         MYVERSION="$(zig version)"
-        if ( $MYVERSION == "$(get_last_num_version)" ); then
+        LASTVERSION="$(get_last_num_version)"
+        if [[ ${MYVERSION} == "${LASTVERSION}" ]]; then
             print "Zig is already the newest version (${MYVERSION}).\nThere is nothing to upgrade.\n"
             exit 0
         fi
 
         # Check out if zig is running or runnable in the foreground, whether associated to
         # Test against 'build' sub-string to a case loop to include other zig's commands (e.g. fmt, cc, build-exe, etc.)
-        print "There is a new version available (${LAST_NUM_VERSION})."
-        if ps -d -u ${USERNAME} -o stat,command | grep -q '^R+[[:blank:]]\+zig build'; then
-            rm -rf "${HOME}/.local/{cache,bin}/zig" # TODO: make it an archive to stash it instead of removing it to reverse changes if installation fails
+        print "There is a new version available (${LASTVERSION})."
+        if ! ps -d -u ${USERNAME} -o stat,command | grep -q '^R+[[:blank:]]\+zig build'; then
+            # TODO: make it an archive to stash it instead of removing it to reverse changes if installation fails
+            rm -rf "${HOME}/.local/cache,bin/zig" && rm -rf "${HOME}/.local/bin/zig"
             download
             extract
             move
@@ -90,6 +92,7 @@ if (( $SRV_RESPONSE == 200 )); then
 
         download
         extract
+        move
 
         # run-control file do not have access to $HOME, that's why the path is replaced with '~'
         printf '%s\\n' "path+=('~/.local/bin/zig')" >> "${HOME}/.zshrc"
