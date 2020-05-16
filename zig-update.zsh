@@ -44,7 +44,7 @@ function extract() {
 if [[ ($SRV_RESPONSE == (200 || 403) ]]; then
     if grep -qF '/bin/zig' "${HOME}/.zshrc"; then # If Zig already installed
         MYVERSION="$(zig version)"
-        if ( MYVERSION == FILE); then
+        if ( $MYVERSION == "${FILE%%\.tar*}"); then
             print "Zig is already the newest version (${MYVERSION}).\n \
             There is nothing to upgrade.\n"
             exit 0
@@ -98,6 +98,8 @@ if [[ ($SRV_RESPONSE == (200 || 403) ]]; then
         source "${HOME}/.zshrc"
         chmod u+x "${HOME}/.local/bin/zig/zig"
         STATUS='Zig has been installed successfully.\n'
+        print "${STATUS}"
+        exit 0
     fi
 else
     # TODO: make the logging book a function to be reused for each non-null exit codes.
