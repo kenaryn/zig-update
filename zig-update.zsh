@@ -41,11 +41,12 @@ function extract() {
 function move() {
     # Take the longest match before '.tar' substring (i.e. strip off new dir from its extension)
     mv "${LAST_FILE_VERSION%%\.tar*}" 'zig'
-    mv 'zig' "${HOME}/.local/bin" # Cannot move: directory not empty. Did NOT executed `rm -rf` line
+    mv 'zig' "${HOME}/.local/bin"
 }
 
 if (( $SRV_RESPONSE == 200 )); then
-    if grep -qF '/bin/zig' "${HOME}/.zshrc"; then # If Zig already installed
+    # If Zig is already installed
+    if grep -qF '/bin/zig' "${HOME}/.zshrc"; then
         MYVERSION="$(zig version)"
         LASTVERSION="$(get_last_num_version)"
         if [[ ${MYVERSION} == "${LASTVERSION}" ]]; then
@@ -64,9 +65,9 @@ if (( $SRV_RESPONSE == 200 )); then
             move
             source "${HOME}/.zshrc"
 
-            # Trivial check before acomplishment.
+            # Trivial check before accomplishment.
             if zig version > /dev/null; then
-                rm -f "${INSTALL_DIR}/${FILE}"
+                rm -f "${INSTALL_DIR}/${LAST_FILE_VERSION}"
                 STATUS='Zig has been updated successfully.\n' # TODO: add a uninstallation' scenario
                 print "${STATUS}Type 'zig --help' to try out available options.\n"
                 exit 0
